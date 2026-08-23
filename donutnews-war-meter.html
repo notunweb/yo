@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DonuttNews — Flood vs Drain War Meter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Teko:wght@500;600;700&family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0A0D12;
+    --panel: #12161F;
+    --panel-2: #171C27;
+    --flood: #2F6FED;
+    --flood-dim: #1E4FB8;
+    --drain: #57E37A;
+    --drain-dim: #2FAE55;
+    --amber: #FFB020;
+    --text: #EDEFF5;
+    --text-dim: #8A93A6;
+    --line: rgba(237,239,245,0.08);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--bg);
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Inter', sans-serif;
+    background:
+      radial-gradient(circle at 50% 0%, rgba(47,111,237,0.10), transparent 55%),
+      radial-gradient(circle at 50% 100%, rgba(87,227,122,0.08), transparent 55%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 28px),
+      var(--bg);
+  }
+
+  .stage {
+    position: relative;
+    width: min(430px, 94vw);
+    height: min(900px, 96vh);
+    background: linear-gradient(180deg, var(--panel), var(--panel-2));
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.02);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 18px 18px 16px;
+  }
+
+  /* ---------- Ticker header ---------- */
+  .ticker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #05070A;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .live-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: #FF4D5E;
+    box-shadow: 0 0 0 0 rgba(255,77,94,0.6);
+    animation: pulse 1.6s infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255,77,94,0.55); }
+    70% { box-shadow: 0 0 0 7px rgba(255,77,94,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,77,94,0); }
+  }
+
+  .ticker-label { color: #FF4D5E; font-size: 13px; }
+
+  .ticker-title {
+    color: var(--text);
+    font-size: 14px;
+    flex: 1;
+    text-transform: uppercase;
+  }
+
+  .round-badge {
+    background: var(--amber);
+    color: #1a1300;
+    font-size: 12px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    letter-spacing: 0.04em;
+  }
+
+  /* ---------- Scoreboard ---------- */
+  .scoreboard {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .score-panel {
+    border-radius: 14px;
+    padding: 12px 8px 10px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .score-panel.flood { background: linear-gradient(160deg, var(--flood), var(--flood-dim)); }
+  .score-panel.drain { background: linear-gradient(160deg, var(--drain), var(--drain-dim)); }
+
+  .team-label {
+    display: block;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    font-size: 13px;
+    color: rgba(0,0,0,0.55);
+    text-transform: uppercase;
+  }
+
+  .score-panel.flood .team-label { color: rgba(255,255,255,0.8); }
+
+  .score-value {
+    display: block;
+    font-family: 'Teko', sans-serif;
+    font-weight: 700;
+    font-size: clamp(48px, 14vw, 64px);
+    line-height: 1;
+    color: #fff;
+  }
+
+  .score-panel.drain .score-value { color: #052013; }
+
+  .score-divider {
+    align-self: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    color: var(--text-dim);
+    font-size: 13px;
+    letter-spacing: 0.1em;
+  }
+
+  /* ---------- War meters ---------- */
+  .meters { margin-top: 16px; }
+
+  .meter-row { margin-bottom: 8px; }
+
+  .meter-track {
+    position: relative;
+    height: 16px;
+    border-radius: 999px;
+    background: #05070A;
+    border: 1px solid var(--line);
+    overflow: hidden;
+  }
+
+  .meter-fill {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 0%;
+    border-radius: 999px;
+    transition: width 0.7s cubic-bezier(0.2,0.8,0.2,1);
+  }
+
+  .flood-fill { background: linear-gradient(90deg, var(--flood-dim), var(--flood)); }
+  .drain-fill { background: linear-gradient(90deg, var(--drain-dim), var(--drain)); }
+
+  .meter-goal-label {
+    text-align: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-top: 6px;
+    text-transform: uppercase;
+  }
+
+  /* ---------- Wheel ---------- */
+  .wheel-zone {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin-top: 6px;
+    min-height: 0;
+  }
+
+  .pointer {
+    position: absolute;
+    top: calc(50% - 158px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 16px solid var(--amber);
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    z-index: 3;
+  }
+
+  .wheel {
+    position: relative;
+    width: min(300px, 72vw);
+    height: min(300px, 72vw);
+    border-radius: 50%;
+    background: conic-gradient(from 0deg,
+      var(--flood) 0deg 180deg,
+      var(--drain) 180deg 360deg);
+    border: 5px solid #05070A;
+    box-shadow: 0 0 0 2px var(--line), 0 20px 40px rgba(0,0,0,0.5);
+    transform: rotate(0deg);
+  }
+
+  .wheel-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 120px;
+    margin-left: -60px;
+    text-align: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: 0.03em;
+    color: rgba(255,255,255,0.95);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.45);
+    transform: rotate(calc(var(--i) * 180deg + 90deg)) translateY(-90px) rotate(calc(-1 * (var(--i) * 180deg + 90deg)));
+    pointer-events: none;
+  }
+
+  .wheel-hub {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 72px; height: 72px;
+    margin: -36px 0 0 -36px;
+    border-radius: 50%;
+    background: #05070A;
+    border: 3px solid var(--amber);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.05em;
+    color: var(--amber);
+    z-index: 2;
+  }
+
+  /* ---------- Result flash ---------- */
+  .result-flash {
+    text-align: center;
+    font-family: 'Teko', sans-serif;
+    font-weight: 600;
+    font-size: 26px;
+    letter-spacing: 0.02em;
+    color: var(--amber);
+    height: 30px;
+    opacity: 0;
+    transform: translateY(6px) scale(0.9);
+    transition: none;
+  }
+
+  .result-flash.show {
+    animation: flashIn 1.3s ease forwards;
+  }
+
+  @keyframes flashIn {
+    0% { opacity: 0; transform: translateY(6px) scale(0.85); }
+    18% { opacity: 1; transform: translateY(0) scale(1.05); }
+    30% { transform: translateY(0) scale(1); }
+    78% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(-6px) scale(1); }
+  }
+
+  /* ---------- Buttons ---------- */
+  .spin-btn {
+    margin-top: 6px;
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(180deg, var(--amber), #E09400);
+    color: #1a1300;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.15s ease, filter 0.15s ease;
+  }
+
+  .spin-btn:hover:not(:disabled) { filter: brightness(1.08); }
+  .spin-btn:active:not(:disabled) { transform: scale(0.98); }
+  .spin-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .spin-btn:focus-visible,
+  .reset-btn:focus-visible,
+  .win-reset-btn:focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 2px;
+  }
+
+  /* ---------- History ---------- */
+  .history {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    margin-top: 12px;
+    padding-bottom: 2px;
+  }
+
+  .history::-webkit-scrollbar { height: 4px; }
+  .history::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+
+  .history-chip {
+    flex-shrink: 0;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    padding: 5px 10px;
+    border-radius: 999px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  .history-chip.flood { background: rgba(47,111,237,0.25); border: 1px solid var(--flood); }
+  .history-chip.drain { background: rgba(87,227,122,0.2); border: 1px solid var(--drain); }
+
+  .history-empty {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 5px 2px;
+  }
+
+  /* ---------- Reset ---------- */
+  .reset-btn {
+    margin-top: 10px;
+    width: 100%;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .reset-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+  /* ---------- Win overlay ---------- */
+  .win-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(5,7,10,0.86);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    text-align: center;
+    padding: 30px;
+    z-index: 10;
+  }
+
+  .win-overlay.show { display: flex; }
+
+  .win-text {
+    font-family: 'Teko', sans-serif;
+    font-weight: 700;
+    font-size: clamp(34px, 9vw, 46px);
+    line-height: 1.05;
+    color: var(--amber);
+    text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+
+  .win-reset-btn {
+    padding: 14px 26px;
+    border: none;
+    border-radius: 12px;
+    background: var(--amber);
+    color: #1a1300;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .win-reset-btn:hover { filter: brightness(1.08); }
+
+  .confetti-layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .confetti-piece {
+    position: absolute;
+    top: -20px;
+    width: 8px;
+    height: 14px;
+    opacity: 0.9;
+    animation-name: fall;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+
+  @keyframes fall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(105vh) rotate(540deg); opacity: 0.85; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .live-dot { animation: none; }
+    .wheel { transition-duration: 0.6s !important; }
+    .confetti-piece { animation-duration: 1.4s !important; }
+    .result-flash.show { animation-duration: 0.6s; }
+  }
+
+  .footnote {
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <header class="ticker">
+    <span class="live-dot"></span>
+    <span class="ticker-label">LIVE</span>
+    <span class="ticker-title">Flood vs Drain War Meter</span>
+    <span class="round-badge" id="roundBadge">ROUND 1</span>
+  </header>
+
+  <section class="scoreboard">
+    <div class="score-panel flood">
+      <span class="team-label">Team Flood</span>
+      <span class="score-value" id="floodScore">290</span>
+    </div>
+    <div class="score-divider">VS</div>
+    <div class="score-panel drain">
+      <span class="team-label">Team Drain</span>
+      <span class="score-value" id="drainScore">290</span>
+    </div>
+  </section>
+
+  <section class="meters">
+    <div class="meter-row">
+      <div class="meter-track">
+        <div class="meter-fill flood-fill" id="floodFill"></div>
+      </div>
+    </div>
+    <div class="meter-row">
+      <div class="meter-track">
+        <div class="meter-fill drain-fill" id="drainFill"></div>
+      </div>
+    </div>
+    <div class="meter-goal-label">First to 400 wins the war</div>
+  </section>
+
+  <div class="wheel-zone">
+    <div class="pointer"></div>
+    <div class="wheel" id="wheel">
+      <div class="wheel-label" style="--i:0">FLOOD</div>
+      <div class="wheel-label" style="--i:1">DRAIN</div>
+      <div class="wheel-hub">SPIN</div>
+    </div>
+  </div>
+
+  <div class="result-flash" id="resultFlash"></div>
+
+  <button class="spin-btn" id="spinBtn">Spin the Wheel</button>
+
+  <div class="history" id="historyRow">
+    <span class="history-empty">Round history will show up here</span>
+  </div>
+
+  <button class="reset-btn" id="resetBtn">↻ Reset</button>
+
+  <div class="footnote">DonuttNews · OBS Browser Source · fits 9:16</div>
+
+  <div class="win-overlay" id="winOverlay">
+    <div class="confetti-layer" id="confettiLayer"></div>
+    <div class="win-text" id="winText">TEAM FLOOD WINS ROUND 1</div>
+    <button class="win-reset-btn" id="winResetBtn">↻ Start Next Round</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const START = 290;
+  const GOAL = 400;
+  const RANGE = GOAL - START;
+
+  const segments = [
+    { team: 'flood', value: 1 },
+    { team: 'drain', value: 1 }
+  ];
+
+  let floodScore = START;
+  let drainScore = START;
+  let round = 1;
+  let spinning = false;
+  let gameOver = false;
+  let currentRotation = 0;
+  let history = [];
+
+  const el = {
+    floodScore: document.getElementById('floodScore'),
+    drainScore: document.getElementById('drainScore'),
+    floodFill: document.getElementById('floodFill'),
+    drainFill: document.getElementById('drainFill'),
+    wheel: document.getElementById('wheel'),
+    spinBtn: document.getElementById('spinBtn'),
+    resetBtn: document.getElementById('resetBtn'),
+    resultFlash: document.getElementById('resultFlash'),
+    historyRow: document.getElementById('historyRow'),
+    roundBadge: document.getElementById('roundBadge'),
+    winOverlay: document.getElementById('winOverlay'),
+    winText: document.getElementById('winText'),
+    winResetBtn: document.getElementById('winResetBtn'),
+    confettiLayer: document.getElementById('confettiLayer')
+  };
+
+  function updateScoreboard(){
+    el.floodScore.textContent = floodScore;
+    el.drainScore.textContent = drainScore;
+    const floodPct = Math.max(0, Math.min(100, ((floodScore - START) / RANGE) * 100));
+    const drainPct = Math.max(0, Math.min(100, ((drainScore - START) / RANGE) * 100));
+    el.floodFill.style.width = floodPct + '%';
+    el.drainFill.style.width = drainPct + '%';
+    el.roundBadge.textContent = 'ROUND ' + round;
+  }
+
+  function flashResult(team, value){
+    el.resultFlash.classList.remove('show');
+    // force reflow so the animation can restart
+    void el.resultFlash.offsetWidth;
+    el.resultFlash.textContent = '+' + value + ' ' + team.toUpperCase();
+    el.resultFlash.style.color = team === 'flood' ? 'var(--flood)' : 'var(--drain)';
+    el.resultFlash.classList.add('show');
+  }
+
+  function renderHistory(){
+    if (history.length === 0){
+      el.historyRow.innerHTML = '<span class="history-empty">Round history will show up here</span>';
+      return;
+    }
+    el.historyRow.innerHTML = history
+      .slice(-8)
+      .map(function(h){
+        return '<span class="history-chip ' + h.winner + '">R' + h.round + ': ' + h.winner.toUpperCase() + '</span>';
+      })
+      .join('');
+  }
+
+  function launchConfetti(team){
+    const colors = team === 'flood'
+      ? ['#2F6FED', '#57E37A', '#FFB020']
+      : ['#57E37A', '#2F6FED', '#FFB020'];
+    const count = 90;
+    for (let i = 0; i < count; i++){
+      const piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      piece.style.left = Math.random() * 100 + '%';
+      piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+      const duration = 2.2 + Math.random() * 1.8;
+      const delay = Math.random() * 0.5;
+      piece.style.animationDuration = duration + 's';
+      piece.style.animationDelay = delay + 's';
+      piece.style.transform = 'rotate(' + Math.floor(Math.random() * 360) + 'deg)';
+      el.confettiLayer.appendChild(piece);
+      piece.addEventListener('animationend', function(){
+        piece.remove();
+      });
+    }
+  }
+
+  function checkWin(){
+    if (floodScore >= GOAL){
+      triggerWin('flood');
+    } else if (drainScore >= GOAL){
+      triggerWin('drain');
+    }
+  }
+
+  function triggerWin(team){
+    gameOver = true;
+    el.spinBtn.disabled = true;
+    history.push({ round: round, winner: team });
+    renderHistory();
+    el.winText.textContent = 'TEAM ' + team.toUpperCase() + ' WINS ROUND ' + round;
+    el.winOverlay.classList.add('show');
+    launchConfetti(team);
+  }
+
+  function applyResult(seg){
+    if (seg.team === 'flood'){
+      floodScore = Math.min(GOAL, floodScore + seg.value);
+    } else {
+      drainScore = Math.min(GOAL, drainScore + seg.value);
+    }
+    updateScoreboard();
+    flashResult(seg.team, seg.value);
+    checkWin();
+  }
+
+  function spin(){
+    if (spinning || gameOver) return;
+    spinning = true;
+    el.spinBtn.disabled = true;
+
+    const idx = Math.floor(Math.random() * segments.length);
+    const segCenter = idx * 180 + 90;
+    const extraSpins = 6;
+    const targetMod = (360 - segCenter) % 360;
+    const current = ((currentRotation % 360) + 360) % 360;
+    let delta = targetMod - current;
+    if (delta < 0) delta += 360;
+    currentRotation = currentRotation + extraSpins * 360 + delta;
+
+    el.wheel.style.transition = 'transform 4.2s cubic-bezier(0.12,0.72,0.13,1)';
+    el.wheel.style.transform = 'rotate(' + currentRotation + 'deg)';
+
+    setTimeout(function(){
+      applyResult(segments[idx]);
+      spinning = false;
+      if (!gameOver) el.spinBtn.disabled = false;
+    }, 4300);
+  }
+
+  function resetRound(){
+    floodScore = START;
+    drainScore = START;
+    round += 1;
+    gameOver = false;
+    spinning = false;
+    updateScoreboard();
+    el.winOverlay.classList.remove('show');
+    el.confettiLayer.innerHTML = '';
+    el.spinBtn.disabled = false;
+    el.resultFlash.classList.remove('show');
+  }
+
+  el.spinBtn.addEventListener('click', spin);
+  el.resetBtn.addEventListener('click', resetRound);
+  el.winResetBtn.addEventListener('click', resetRound);
+
+  updateScoreboard();
+  renderHistory();
+})();
+</script>
+
+</body>
+</html>
